@@ -1,0 +1,5 @@
+{
+  "name": "TanFotos",
+  "description": "Aplicación móvil para captura de documentos médicos y recetas con modo dual.",
+  "requestFramePermissions": ["camera"]
+}
