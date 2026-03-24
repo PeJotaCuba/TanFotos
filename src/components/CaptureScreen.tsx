@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, RotateCcw, Split, Save, X } from 'lucide-react';
-import { savePhoto } from '../lib/db';
+import { Camera, RotateCcw, Split, Save, X, Share2 } from 'lucide-react';
+import { savePhoto, getDirectoryHandle } from '../lib/db';
 
 export const CaptureScreen = () => {
   const [dualMode, setDualMode] = useState(false);
@@ -12,7 +12,6 @@ export const CaptureScreen = () => {
   // Modal state
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   const [photoName, setPhotoName] = useState('');
-  const [photoFolder, setPhotoFolder] = useState('');
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -47,7 +46,6 @@ export const CaptureScreen = () => {
     setPreviewPhoto(dataUrl);
     const timestamp = Date.now();
     setPhotoName(`TanFotos_${type}_${timestamp}`);
-    setPhotoFolder(localStorage.getItem('tanFotos_folderPath') || '/Documentos/TanFotos');
   };
 
   const handleCapture = async () => {
@@ -108,16 +106,44 @@ export const CaptureScreen = () => {
     if (!previewPhoto) return;
 
     const finalName = photoName.endsWith('.jpg') ? photoName : `${photoName}.jpg`;
+    const folderName = localStorage.getItem('tanFotos_folderPath') || 'Descargas';
     
     // Save to IndexedDB for Gallery
     await savePhoto({
       dataUrl: previewPhoto,
       timestamp: Date.now(),
       name: finalName,
-      folder: photoFolder
+      folder: folderName
     });
 
-    // Trigger download to local device
+    try {
+      const dirHandle = await getDirectoryHandle();
+      if (dirHandle) {
+        // Request permission if needed
+        if ((await dirHandle.queryPermission({ mode: 'readwrite' })) !== 'granted') {
+          if ((await dirHandle.requestPermission({ mode: 'readwrite' })) !== 'granted') {
+            throw new Error('Permission not granted');
+          }
+        }
+        
+        const fileHandle = await dirHandle.getFileHandle(finalName, { create: true });
+        const writable = await fileHandle.createWritable();
+        
+        const res = await fetch(previewPhoto);
+        const blob = await res.blob();
+        
+        await writable.write(blob);
+        await writable.close();
+        
+        setPreviewPhoto(null);
+        alert('Foto guardada correctamente en la carpeta seleccionada.');
+        return;
+      }
+    } catch (e) {
+      console.error("Error saving to directory handle, falling back to download", e);
+    }
+
+    // Fallback: Trigger download to local device
     const link = document.createElement('a');
     link.href = previewPhoto;
     link.download = finalName;
@@ -127,6 +153,32 @@ export const CaptureScreen = () => {
     
     setPreviewPhoto(null);
     alert('Foto guardada correctamente.');
+  };
+
+  const shareViaWhatsApp = async () => {
+    if (!previewPhoto) return;
+    
+    const finalName = photoName.endsWith('.jpg') ? photoName : `${photoName}.jpg`;
+    
+    try {
+      const res = await fetch(previewPhoto);
+      const blob = await res.blob();
+      const file = new File([blob], finalName, { type: 'image/jpeg' });
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: finalName,
+          text: `Documento: ${finalName}`
+        });
+      } else {
+        alert('Tu navegador no soporta compartir imágenes directamente a WhatsApp.');
+      }
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error('Error sharing:', error);
+      }
+    }
   };
 
   return (
@@ -230,31 +282,31 @@ export const CaptureScreen = () => {
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Carpeta de destino</label>
-                  <input 
-                    type="text" 
-                    value={photoFolder}
-                    onChange={(e) => setPhotoFolder(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
               </div>
             </div>
             
-            <div className="p-4 border-t bg-gray-50 flex gap-3">
+            <div className="p-4 border-t bg-gray-50 flex flex-col gap-3">
+              <div className="flex gap-3">
+                <button 
+                  onClick={confirmSave}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+                >
+                  <Save size={18} />
+                  Guardar
+                </button>
+                <button 
+                  onClick={shareViaWhatsApp}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600"
+                >
+                  <Share2 size={18} />
+                  WhatsApp
+                </button>
+              </div>
               <button 
                 onClick={() => setPreviewPhoto(null)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-100"
+                className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-100"
               >
                 Cancelar
-              </button>
-              <button 
-                onClick={confirmSave}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
-              >
-                <Save size={18} />
-                Guardar
               </button>
             </div>
           </div>

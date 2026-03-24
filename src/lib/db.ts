@@ -8,7 +8,8 @@ export interface PhotoRecord {
 
 const DB_NAME = 'TanFotosDB';
 const STORE_NAME = 'photos';
-const DB_VERSION = 2;
+const SETTINGS_STORE = 'settings';
+const DB_VERSION = 3;
 
 export const initDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
@@ -21,6 +22,9 @@ export const initDB = (): Promise<IDBDatabase> => {
       const db = (event.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+      }
+      if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
+        db.createObjectStore(SETTINGS_STORE, { keyPath: 'key' });
       }
     };
   });
@@ -63,5 +67,31 @@ export const deletePhoto = async (id: number): Promise<void> => {
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve();
+  });
+};
+
+export const saveDirectoryHandle = async (handle: any): Promise<void> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(SETTINGS_STORE, 'readwrite');
+    const store = transaction.objectStore(SETTINGS_STORE);
+    const request = store.put({ key: 'saveDirectory', handle });
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+};
+
+export const getDirectoryHandle = async (): Promise<any> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(SETTINGS_STORE, 'readonly');
+    const store = transaction.objectStore(SETTINGS_STORE);
+    const request = store.get('saveDirectory');
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      resolve(request.result ? request.result.handle : null);
+    };
   });
 };

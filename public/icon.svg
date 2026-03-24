@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)" />
+  
+  <!-- Document outline -->
+  <rect x="144" y="112" width="224" height="288" rx="24" fill="none" stroke="#ffffff" stroke-width="32" />
+  
+  <!-- Camera lens -->
+  <circle cx="256" cy="256" r="48" fill="none" stroke="#ffffff" stroke-width="32" />
+  
+  <!-- Flash / Dot -->
+  <circle cx="312" cy="168" r="16" fill="#ffffff" />
+  
+  <!-- Dual mode line -->
+  <line x1="144" y1="256" x2="368" y2="256" stroke="#ffffff" stroke-width="24" stroke-dasharray="24 16" />
+</svg>

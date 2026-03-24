@@ -1,17 +1,57 @@
 import React, { useState, useEffect } from 'react';
 import { Folder, Save, AlertCircle } from 'lucide-react';
+import { saveDirectoryHandle, getDirectoryHandle } from '../lib/db';
 
 export const SettingsScreen = () => {
   const [folderPath, setFolderPath] = useState('');
+  const [isSupported, setIsSupported] = useState(true);
 
   useEffect(() => {
-    const savedPath = localStorage.getItem('tanFotos_folderPath') || '/Documentos/TanFotos';
-    setFolderPath(savedPath);
+    // Check if File System Access API is supported
+    if (!('showDirectoryPicker' in window)) {
+      setIsSupported(false);
+    }
+
+    const loadSettings = async () => {
+      const savedPath = localStorage.getItem('tanFotos_folderPath') || 'Descargas (por defecto)';
+      setFolderPath(savedPath);
+      
+      try {
+        const handle = await getDirectoryHandle();
+        if (handle && handle.name) {
+          setFolderPath(handle.name);
+        }
+      } catch (e) {
+        console.error("Error loading directory handle", e);
+      }
+    };
+    
+    loadSettings();
   }, []);
 
-  const handleSave = () => {
-    localStorage.setItem('tanFotos_folderPath', folderPath);
-    alert('Carpeta de almacenamiento actualizada.');
+  const handleSelectFolder = async () => {
+    if (!isSupported) {
+      alert('Tu navegador no soporta la selección de carpetas nativa. Las fotos se guardarán en tu carpeta de Descargas por defecto.');
+      return;
+    }
+
+    try {
+      // @ts-ignore
+      const directoryHandle = await window.showDirectoryPicker({
+        mode: 'readwrite'
+      });
+      
+      await saveDirectoryHandle(directoryHandle);
+      setFolderPath(directoryHandle.name);
+      localStorage.setItem('tanFotos_folderPath', directoryHandle.name);
+      
+      alert(`Carpeta "${directoryHandle.name}" seleccionada correctamente.`);
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error('Error selecting folder:', error);
+        alert('Hubo un error al seleccionar la carpeta.');
+      }
+    }
   };
 
   return (
@@ -28,23 +68,33 @@ export const SettingsScreen = () => {
             <input
               type="text"
               value={folderPath}
-              onChange={(e) => setFolderPath(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="/Documentos/TanFotos"
+              readOnly
+              className="w-full pl-10 pr-4 py-2 border rounded-lg bg-gray-50 text-gray-600 focus:outline-none"
+              placeholder="Descargas (por defecto)"
             />
           </div>
           <button 
-            onClick={handleSave}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            onClick={handleSelectFolder}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 whitespace-nowrap"
           >
-            <Save size={20} />
-            Guardar
+            <Folder size={20} />
+            Seleccionar
           </button>
         </div>
-        <p className="mt-4 text-sm text-gray-500 flex items-center gap-2">
-          <AlertCircle size={16} />
-          Esta carpeta se utilizará para guardar las imágenes capturadas localmente.
-        </p>
+        
+        {!isSupported && (
+          <p className="mt-4 text-sm text-amber-600 flex items-center gap-2">
+            <AlertCircle size={16} />
+            Tu navegador no soporta elegir una carpeta específica. Las fotos irán a Descargas.
+          </p>
+        )}
+        
+        {isSupported && (
+          <p className="mt-4 text-sm text-gray-500 flex items-center gap-2">
+            <AlertCircle size={16} />
+            Esta carpeta se utilizará para guardar las imágenes capturadas localmente.
+          </p>
+        )}
       </div>
     </main>
   );
