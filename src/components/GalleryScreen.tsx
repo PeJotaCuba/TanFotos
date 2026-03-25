@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getPhotos, deletePhoto, updatePhoto, PhotoRecord } from '../lib/db';
-import { Trash2, Download, Folder, Share2, X, Crop as CropIcon, RotateCw, Save } from 'lucide-react';
+import { Trash2, Download, Folder, Share2, X, Crop as CropIcon, RotateCw, Save, ZoomIn, ZoomOut } from 'lucide-react';
 import ReactCrop, { Crop, PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 
 export const GalleryScreen = () => {
   const [photos, setPhotos] = useState<PhotoRecord[]>([]);
   const [expandedPhoto, setExpandedPhoto] = useState<PhotoRecord | null>(null);
+  const [zoom, setZoom] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
 
@@ -34,6 +35,7 @@ export const GalleryScreen = () => {
   const openFullScreen = (photo: PhotoRecord) => {
     setExpandedPhoto(photo);
     setIsEditing(false);
+    setZoom(1);
     window.history.pushState({ fullScreen: true }, '');
   };
 
@@ -316,7 +318,8 @@ export const GalleryScreen = () => {
               <img 
                 src={expandedPhoto.dataUrl} 
                 alt={expandedPhoto.name} 
-                className="max-w-full max-h-full object-contain cursor-pointer"
+                className="max-w-full max-h-full object-contain cursor-pointer transition-transform duration-200"
+                style={{ transform: `scale(${zoom})` }}
                 onClick={closeFullScreen}
                 decoding="async"
               />
@@ -327,6 +330,23 @@ export const GalleryScreen = () => {
               >
                 <X size={24} />
               </button>
+
+              <div className="absolute bottom-24 flex gap-4 bg-black/50 p-2 rounded-full backdrop-blur-md">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setZoom(prev => Math.min(prev + 0.5, 3)); }} 
+                  className="p-3 bg-gray-700 text-white rounded-full hover:bg-gray-600 transition-colors"
+                  title="Zoom In"
+                >
+                  <ZoomIn size={24} />
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setZoom(prev => Math.max(prev - 0.5, 1)); }} 
+                  className="p-3 bg-gray-700 text-white rounded-full hover:bg-gray-600 transition-colors"
+                  title="Zoom Out"
+                >
+                  <ZoomOut size={24} />
+                </button>
+              </div>
 
               <div className="absolute bottom-8 flex gap-6 bg-black/50 p-4 rounded-full backdrop-blur-md">
                 <button 

@@ -41,8 +41,10 @@ export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate }) => {
         stream = await navigator.mediaDevices.getUserMedia({
           video: { 
             facingMode,
-            width: { ideal: 1920 }, // 1080p is plenty for mobile and much faster than 4K
-            height: { ideal: 1080 }
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            // @ts-ignore - focusMode is not in standard MediaTrackConstraints yet
+            focusMode: 'continuous'
           }
         });
         
@@ -265,7 +267,7 @@ export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate }) => {
         
         {/* Scanning Frame */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="relative border-2 border-white/50 rounded-xl transition-all duration-300 w-4/5 h-2/3 md:w-3/5 md:h-3/4">
+          <div className="relative border-2 border-white/50 rounded-xl transition-all duration-300 w-4/5 h-4/5 md:w-3/5 md:h-3/5">
             {/* Corner brackets */}
             <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500 rounded-tl-xl"></div>
             <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500 rounded-tr-xl"></div>
