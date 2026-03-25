@@ -45,7 +45,7 @@ export default function App() {
         toggleDarkMode={toggleDarkMode} 
         onShowHelp={() => setShowHelp(true)} 
       />
-      {currentScreen === 'capture' && <CaptureScreen />}
+      {currentScreen === 'capture' && <CaptureScreen onNavigate={setCurrentScreen} />}
       {currentScreen === 'gallery' && <GalleryScreen />}
       {currentScreen === 'settings' && <SettingsScreen />}
       <BottomNav currentScreen={currentScreen} onNavigate={setCurrentScreen} />

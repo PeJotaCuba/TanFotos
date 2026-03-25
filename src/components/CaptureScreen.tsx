@@ -2,9 +2,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Camera, RotateCcw, Save, X, Share2, Split } from 'lucide-react';
 import { savePhoto, getDirectoryHandle } from '../lib/db';
 
-export const CaptureScreen = () => {
+interface CaptureScreenProps {
+  onNavigate?: (screen: string) => void;
+}
+
+export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate }) => {
   const [firstPhoto, setFirstPhoto] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingMessage, setProcessingMessage] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -16,20 +22,54 @@ export const CaptureScreen = () => {
   const [photoName, setPhotoName] = useState('Paciente ');
   const [photoDate, setPhotoDate] = useState('');
 
+  const [deviceAngle, setDeviceAngle] = useState<number>(0);
+
+  useEffect(() => {
+    const handleOrientation = (event: DeviceOrientationEvent) => {
+      const { beta, gamma } = event;
+      if (beta === null || gamma === null) return;
+      
+      const absBeta = Math.abs(beta);
+      const absGamma = Math.abs(gamma);
+      
+      if (absGamma > 45 && absGamma > absBeta) {
+        // Landscape
+        setDeviceAngle(gamma > 0 ? 90 : -90);
+      } else {
+        // Portrait
+        setDeviceAngle(0);
+      }
+    };
+
+    window.addEventListener('deviceorientation', handleOrientation);
+    return () => window.removeEventListener('deviceorientation', handleOrientation);
+  }, []);
+
   useEffect(() => {
     let stream: MediaStream | null = null;
+    let isMounted = true;
 
     const startCamera = async () => {
       try {
+        // Ensure any previous stream is stopped before requesting a new one
+        if (videoRef.current && videoRef.current.srcObject) {
+          const oldStream = videoRef.current.srcObject as MediaStream;
+          oldStream.getTracks().forEach(track => track.stop());
+        }
+
         stream = await navigator.mediaDevices.getUserMedia({
           video: { 
             facingMode,
-            width: { ideal: 4096 },
-            height: { ideal: 2160 }
+            width: { ideal: 1920 }, // 1080p is plenty for mobile and much faster than 4K
+            height: { ideal: 1080 }
           }
         });
-        if (videoRef.current) {
+        
+        if (isMounted && videoRef.current) {
           videoRef.current.srcObject = stream;
+        } else if (stream) {
+          // If component unmounted while waiting for camera
+          stream.getTracks().forEach(track => track.stop());
         }
       } catch (err) {
         console.error("Error accessing camera:", err);
@@ -39,8 +79,14 @@ export const CaptureScreen = () => {
     startCamera();
 
     return () => {
+      isMounted = false;
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
+      }
+      if (videoRef.current && videoRef.current.srcObject) {
+        const currentStream = videoRef.current.srcObject as MediaStream;
+        currentStream.getTracks().forEach(track => track.stop());
+        videoRef.current.srcObject = null;
       }
     };
   }, [facingMode]);
@@ -70,12 +116,24 @@ export const CaptureScreen = () => {
     if (!context) return;
 
     // Set canvas dimensions to match video exactly (full frame)
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    const isVideoPortrait = video.videoHeight > video.videoWidth;
     
-    // Draw current frame
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.95); // High quality, better performance than 1.0
+    if (isVideoPortrait && (deviceAngle === 90 || deviceAngle === -90)) {
+      canvas.width = video.videoHeight;
+      canvas.height = video.videoWidth;
+      context.translate(canvas.width / 2, canvas.height / 2);
+      const rotation = deviceAngle === 90 ? -90 : 90;
+      context.rotate((rotation * Math.PI) / 180);
+      context.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2, video.videoWidth, video.videoHeight);
+      // Reset transform for future operations
+      context.setTransform(1, 0, 0, 1, 0, 0);
+    } else {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    }
+    
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85); // Good quality, much faster
 
     if (dualMode) {
       if (!firstPhoto) {
@@ -83,31 +141,41 @@ export const CaptureScreen = () => {
         setFirstPhoto(dataUrl);
         alert('Primera foto tomada. Por favor, tome la segunda foto (reverso).');
       } else {
-        // Second photo of dual mode - combine them
-        const img1 = new Image();
-        const img2 = new Image();
+        setIsProcessing(true);
+        setProcessingMessage('Procesando imagen dual...');
         
-        img1.src = firstPhoto;
-        img2.src = dataUrl;
+        // Use setTimeout to allow UI to update and show loading spinner
+        setTimeout(async () => {
+          try {
+            // Second photo of dual mode - combine them
+            const img1 = new Image();
+            const img2 = new Image();
+            
+            img1.src = firstPhoto;
+            img2.src = dataUrl;
 
-        await Promise.all([
-          new Promise(resolve => img1.onload = resolve),
-          new Promise(resolve => img2.onload = resolve)
-        ]);
+            await Promise.all([
+              new Promise(resolve => img1.onload = resolve),
+              new Promise(resolve => img2.onload = resolve)
+            ]);
 
-        // Combine top and bottom
-        canvas.width = Math.max(img1.width, img2.width);
-        canvas.height = img1.height + img2.height;
-        
-        context.fillStyle = 'white';
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        
-        context.drawImage(img1, 0, 0);
-        context.drawImage(img2, 0, img1.height);
-        
-        const combinedDataUrl = canvas.toDataURL('image/jpeg', 0.95); // High quality, better performance than 1.0
-        openSaveModal(combinedDataUrl, 'dual');
-        setFirstPhoto(null);
+            // Combine top and bottom
+            canvas.width = Math.max(img1.width, img2.width);
+            canvas.height = img1.height + img2.height;
+            
+            context.fillStyle = 'white';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            
+            context.drawImage(img1, 0, 0);
+            context.drawImage(img2, 0, img1.height);
+            
+            const combinedDataUrl = canvas.toDataURL('image/jpeg', 0.85); // Good quality, much faster
+            openSaveModal(combinedDataUrl, 'dual');
+            setFirstPhoto(null);
+          } finally {
+            setIsProcessing(false);
+          }
+        }, 50);
       }
     } else {
       // Single mode
@@ -118,66 +186,80 @@ export const CaptureScreen = () => {
   const confirmSave = async () => {
     if (!previewPhoto) return;
 
-    const baseName = photoName.trim();
-    const dateSuffix = photoDate ? `_${photoDate}` : '';
-    const finalName = `${baseName}${dateSuffix}.jpg`;
-    const folderName = localStorage.getItem('tanFotos_folderPath') || 'Descargas';
-    
-    // Save to IndexedDB for Gallery
-    await savePhoto({
-      dataUrl: previewPhoto,
-      timestamp: Date.now(),
-      name: finalName,
-      folder: folderName
-    });
+    setIsProcessing(true);
+    setProcessingMessage('Guardando foto...');
 
     try {
-      const dirHandle = await getDirectoryHandle();
-      if (dirHandle) {
-        // Request permission if needed
-        if ((await dirHandle.queryPermission({ mode: 'readwrite' })) !== 'granted') {
-          if ((await dirHandle.requestPermission({ mode: 'readwrite' })) !== 'granted') {
-            throw new Error('Permission not granted');
-          }
-        }
-        
-        const fileHandle = await dirHandle.getFileHandle(finalName, { create: true });
-        const writable = await fileHandle.createWritable();
-        
-        const res = await fetch(previewPhoto);
-        const blob = await res.blob();
-        
-        await writable.write(blob);
-        await writable.close();
-        
-        setPreviewPhoto(null);
-        alert('Foto guardada correctamente en la carpeta seleccionada.');
-        return;
-      }
-    } catch (e) {
-      console.error("Error saving to directory handle, falling back to download", e);
-    }
+      const baseName = photoName.trim();
+      const dateSuffix = photoDate ? `_${photoDate}` : '';
+      const finalName = `${baseName}${dateSuffix}.jpg`;
+      const folderName = localStorage.getItem('tanFotos_folderPath') || 'Descargas';
+      
+      // Save to IndexedDB for Gallery
+      await savePhoto({
+        dataUrl: previewPhoto,
+        timestamp: Date.now(),
+        name: finalName,
+        folder: folderName
+      });
 
-    // Fallback: Trigger download to local device
-    const link = document.createElement('a');
-    link.href = previewPhoto;
-    link.download = finalName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    setPreviewPhoto(null);
-    alert('Foto guardada correctamente.');
+      let savedToDir = false;
+      try {
+        const dirHandle = await getDirectoryHandle();
+        if (dirHandle) {
+          // Request permission if needed
+          if ((await dirHandle.queryPermission({ mode: 'readwrite' })) !== 'granted') {
+            if ((await dirHandle.requestPermission({ mode: 'readwrite' })) !== 'granted') {
+              throw new Error('Permission not granted');
+            }
+          }
+          
+          const fileHandle = await dirHandle.getFileHandle(finalName, { create: true });
+          const writable = await fileHandle.createWritable();
+          
+          const res = await fetch(previewPhoto);
+          const blob = await res.blob();
+          
+          await writable.write(blob);
+          await writable.close();
+          savedToDir = true;
+        }
+      } catch (e) {
+        console.error("Error saving to directory handle, falling back to download", e);
+      }
+
+      if (!savedToDir) {
+        // Fallback: Trigger download to local device
+        const link = document.createElement('a');
+        link.href = previewPhoto;
+        link.download = finalName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      
+      setPreviewPhoto(null);
+      
+      // Redirect to gallery after successful save
+      if (onNavigate) {
+        onNavigate('gallery');
+      }
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const shareViaWhatsApp = async () => {
     if (!previewPhoto) return;
     
-    const baseName = photoName.trim();
-    const dateSuffix = photoDate ? `_${photoDate}` : '';
-    const finalName = `${baseName}${dateSuffix}.jpg`;
+    setIsProcessing(true);
+    setProcessingMessage('Preparando para compartir...');
     
     try {
+      const baseName = photoName.trim();
+      const dateSuffix = photoDate ? `_${photoDate}` : '';
+      const finalName = `${baseName}${dateSuffix}.jpg`;
+      
       const res = await fetch(previewPhoto);
       const blob = await res.blob();
       const file = new File([blob], finalName, { type: 'image/jpeg' });
@@ -195,6 +277,8 @@ export const CaptureScreen = () => {
       if (error.name !== 'AbortError') {
         console.error('Error sharing:', error);
       }
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -216,6 +300,13 @@ export const CaptureScreen = () => {
         <div className="absolute top-20 left-4 z-10 bg-blue-600/90 text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-lg flex items-center gap-2 backdrop-blur-md">
           <Split size={16} />
           Modo Dual Activado
+        </div>
+      )}
+
+      {/* Orientation Indicator */}
+      {(deviceAngle === 90 || deviceAngle === -90) && (
+        <div className="absolute top-20 right-4 z-10 bg-green-500/90 text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-lg flex items-center gap-2 backdrop-blur-md">
+          Modo Horizontal
         </div>
       )}
 
@@ -266,11 +357,21 @@ export const CaptureScreen = () => {
         </div>
       </div>
 
+      {/* Loading Overlay */}
+      {isProcessing && (
+        <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 max-w-[80vw]">
+            <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+            <p className="text-gray-900 dark:text-white font-medium text-center">{processingMessage}</p>
+          </div>
+        </div>
+      )}
+
       {/* Save Modal */}
       {previewPhoto && (
         <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
               <h3 className="font-bold text-lg text-gray-900 dark:text-white">Guardar Foto</h3>
               <button onClick={() => setPreviewPhoto(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-500 dark:text-gray-400">
                 <X size={20} />
@@ -279,7 +380,7 @@ export const CaptureScreen = () => {
             
             <div className="p-4 overflow-y-auto flex-grow">
               <div className="w-full flex items-center justify-center mb-4 bg-transparent">
-                <img src={previewPhoto} alt="Preview" className="max-w-full h-auto max-h-[50vh] object-contain rounded-lg shadow-md border border-gray-200 dark:border-gray-700" decoding="async" />
+                <img src={previewPhoto} alt="Preview" className="max-w-full h-auto max-h-[35vh] object-contain rounded-lg shadow-md border border-gray-200 dark:border-gray-700" decoding="async" />
               </div>
               
               <div className="space-y-4">
@@ -304,7 +405,7 @@ export const CaptureScreen = () => {
               </div>
             </div>
             
-            <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex flex-col gap-3">
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex flex-col gap-3 flex-shrink-0">
               <div className="flex gap-3">
                 <button 
                   onClick={confirmSave}

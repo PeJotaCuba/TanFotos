@@ -1,10 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import { getPhotos, deletePhoto, PhotoRecord } from '../lib/db';
-import { Trash2, Download, Folder, Share2, X } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { getPhotos, deletePhoto, updatePhoto, PhotoRecord } from '../lib/db';
+import { Trash2, Download, Folder, Share2, X, Crop as CropIcon, RotateCw, Save } from 'lucide-react';
+import ReactCrop, { Crop, PixelCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 
 export const GalleryScreen = () => {
   const [photos, setPhotos] = useState<PhotoRecord[]>([]);
   const [expandedPhoto, setExpandedPhoto] = useState<PhotoRecord | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingMessage, setProcessingMessage] = useState('');
+
+  // Editing state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editDataUrl, setEditDataUrl] = useState('');
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+  const imgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     loadPhotos();
@@ -22,29 +33,127 @@ export const GalleryScreen = () => {
 
   const openFullScreen = (photo: PhotoRecord) => {
     setExpandedPhoto(photo);
+    setIsEditing(false);
     window.history.pushState({ fullScreen: true }, '');
   };
 
   const closeFullScreen = () => {
     setExpandedPhoto(null);
+    setIsEditing(false);
     if (window.history.state?.fullScreen) {
       window.history.back();
     }
   };
 
+  const startEditing = () => {
+    if (expandedPhoto) {
+      setEditDataUrl(expandedPhoto.dataUrl);
+      setIsEditing(true);
+      setCrop(undefined);
+      setCompletedCrop(undefined);
+    }
+  };
+
+  const handleRotate = () => {
+    setIsProcessing(true);
+    setProcessingMessage('Rotando imagen...');
+    
+    // Use setTimeout to allow UI to update
+    setTimeout(() => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.height;
+        canvas.height = img.width;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.translate(canvas.width / 2, canvas.height / 2);
+          ctx.rotate((90 * Math.PI) / 180);
+          ctx.drawImage(img, -img.width / 2, -img.height / 2);
+          setEditDataUrl(canvas.toDataURL('image/jpeg', 0.9));
+          setCrop(undefined);
+          setCompletedCrop(undefined);
+        }
+        setIsProcessing(false);
+      };
+      img.src = editDataUrl;
+    }, 50);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!expandedPhoto || !imgRef.current) return;
+    
+    setIsProcessing(true);
+    setProcessingMessage('Guardando edición...');
+    
+    try {
+      let finalDataUrl = editDataUrl;
+      
+      if (completedCrop && completedCrop.width > 0 && completedCrop.height > 0) {
+        const image = imgRef.current;
+        const canvas = document.createElement('canvas');
+        const scaleX = image.naturalWidth / image.width;
+        const scaleY = image.naturalHeight / image.height;
+        
+        canvas.width = completedCrop.width * scaleX;
+        canvas.height = completedCrop.height * scaleY;
+        
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(
+            image,
+            completedCrop.x * scaleX,
+            completedCrop.y * scaleY,
+            completedCrop.width * scaleX,
+            completedCrop.height * scaleY,
+            0,
+            0,
+            canvas.width,
+            canvas.height
+          );
+          finalDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        }
+      }
+      
+      const updatedPhoto = { ...expandedPhoto, dataUrl: finalDataUrl };
+      await updatePhoto(updatedPhoto);
+      setExpandedPhoto(updatedPhoto);
+      setIsEditing(false);
+      await loadPhotos();
+    } catch (error) {
+      console.error('Error saving edit:', error);
+      alert('Error al guardar la edición.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const loadPhotos = async () => {
     try {
+      setIsProcessing(true);
+      setProcessingMessage('Cargando galería...');
       const loadedPhotos = await getPhotos();
       setPhotos(loadedPhotos);
     } catch (error) {
       console.error("Error loading photos:", error);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Eliminar esta foto?')) {
-      await deletePhoto(id);
-      await loadPhotos();
+      setIsProcessing(true);
+      setProcessingMessage('Eliminando foto...');
+      try {
+        await deletePhoto(id);
+        if (expandedPhoto && expandedPhoto.id === id) {
+          closeFullScreen();
+        }
+        await loadPhotos();
+      } finally {
+        setIsProcessing(false);
+      }
     }
   };
 
@@ -58,6 +167,8 @@ export const GalleryScreen = () => {
   };
 
   const handleShare = async (photo: PhotoRecord) => {
+    setIsProcessing(true);
+    setProcessingMessage('Preparando para compartir...');
     try {
       const res = await fetch(photo.dataUrl);
       const blob = await res.blob();
@@ -76,6 +187,8 @@ export const GalleryScreen = () => {
       if (error.name !== 'AbortError') {
         console.error('Error sharing:', error);
       }
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -145,53 +258,114 @@ export const GalleryScreen = () => {
         </div>
       )}
 
+      {/* Loading Overlay */}
+      {isProcessing && (
+        <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 max-w-[80vw]">
+            <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+            <p className="text-gray-900 dark:text-white font-medium text-center">{processingMessage}</p>
+          </div>
+        </div>
+      )}
+
       {/* Full Screen Photo Modal */}
       {expandedPhoto && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center">
-          <img 
-            src={expandedPhoto.dataUrl} 
-            alt={expandedPhoto.name} 
-            className="max-w-full max-h-full object-contain cursor-pointer"
-            onClick={closeFullScreen}
-            decoding="async"
-          />
-          
-          <button 
-            onClick={closeFullScreen} 
-            className="absolute top-6 right-6 p-2 bg-black/50 text-white rounded-full backdrop-blur-md hover:bg-black/70 transition-colors"
-          >
-            <X size={24} />
-          </button>
+          {isEditing ? (
+            <div className="flex flex-col items-center justify-center w-full h-full p-4">
+              <ReactCrop
+                crop={crop}
+                onChange={(_, percentCrop) => setCrop(percentCrop)}
+                onComplete={(c) => setCompletedCrop(c)}
+                className="max-h-[70vh]"
+              >
+                <img
+                  ref={imgRef}
+                  src={editDataUrl}
+                  alt="Edit"
+                  className="max-w-full max-h-[70vh] object-contain"
+                />
+              </ReactCrop>
+              
+              <div className="absolute bottom-8 flex gap-4 bg-black/80 p-4 rounded-full backdrop-blur-md">
+                <button 
+                  onClick={handleRotate}
+                  className="p-3 bg-gray-700 text-white rounded-full hover:bg-gray-600 transition-colors"
+                  title="Rotar"
+                >
+                  <RotateCw size={24} />
+                </button>
+                <button 
+                  onClick={handleSaveEdit}
+                  className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
+                  title="Guardar Cambios"
+                >
+                  <Save size={24} />
+                </button>
+                <button 
+                  onClick={() => setIsEditing(false)}
+                  className="p-3 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
+                  title="Cancelar Edición"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <img 
+                src={expandedPhoto.dataUrl} 
+                alt={expandedPhoto.name} 
+                className="max-w-full max-h-full object-contain cursor-pointer"
+                onClick={closeFullScreen}
+                decoding="async"
+              />
+              
+              <button 
+                onClick={closeFullScreen} 
+                className="absolute top-6 right-6 p-2 bg-black/50 text-white rounded-full backdrop-blur-md hover:bg-black/70 transition-colors"
+              >
+                <X size={24} />
+              </button>
 
-          <div className="absolute bottom-8 flex gap-6 bg-black/50 p-4 rounded-full backdrop-blur-md">
-            <button 
-              onClick={(e) => { e.stopPropagation(); handleShare(expandedPhoto); }} 
-              className="p-3 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors"
-              title="Compartir por WhatsApp"
-            >
-              <Share2 size={24} />
-            </button>
-            <button 
-              onClick={(e) => { e.stopPropagation(); handleDownload(expandedPhoto); }} 
-              className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
-              title="Descargar"
-            >
-              <Download size={24} />
-            </button>
-            <button 
-              onClick={(e) => { 
-                e.stopPropagation(); 
-                if (expandedPhoto.id) {
-                  handleDelete(expandedPhoto.id);
-                  closeFullScreen();
-                }
-              }} 
-              className="p-3 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
-              title="Eliminar"
-            >
-              <Trash2 size={24} />
-            </button>
-          </div>
+              <div className="absolute bottom-8 flex gap-6 bg-black/50 p-4 rounded-full backdrop-blur-md">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); startEditing(); }} 
+                  className="p-3 bg-gray-700 text-white rounded-full hover:bg-gray-600 transition-colors"
+                  title="Editar (Recortar/Rotar)"
+                >
+                  <CropIcon size={24} />
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); handleShare(expandedPhoto); }} 
+                  className="p-3 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors"
+                  title="Compartir por WhatsApp"
+                >
+                  <Share2 size={24} />
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); handleDownload(expandedPhoto); }} 
+                  className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
+                  title="Descargar"
+                >
+                  <Download size={24} />
+                </button>
+                <button 
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    if (expandedPhoto.id) {
+                      handleDelete(expandedPhoto.id);
+                      closeFullScreen();
+                    }
+                  }} 
+                  className="p-3 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
+                  title="Eliminar"
+                >
+                  <Trash2 size={24} />
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </main>

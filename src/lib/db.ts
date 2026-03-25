@@ -58,6 +58,18 @@ export const getPhotos = async (): Promise<PhotoRecord[]> => {
   });
 };
 
+export const updatePhoto = async (photo: PhotoRecord): Promise<void> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.put(photo);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+};
+
 export const deletePhoto = async (id: number): Promise<void> => {
   const db = await initDB();
   return new Promise((resolve, reject) => {
