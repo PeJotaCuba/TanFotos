@@ -317,8 +317,8 @@ export const GalleryScreen = () => {
             <>
               <div className="w-full h-full overflow-auto">
                 <div 
-                  className="flex items-center justify-center min-h-full min-w-full"
-                  style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.2s' }}
+                  className={`min-h-full min-w-full ${zoom === 1 ? 'flex items-center justify-center' : ''}`}
+                  style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%`, transition: 'width 0.2s, height 0.2s' }}
                 >
                   <img 
                     src={expandedPhoto.dataUrl} 
@@ -339,14 +339,14 @@ export const GalleryScreen = () => {
 
               <div className="absolute bottom-24 flex gap-4 bg-black/50 p-2 rounded-full backdrop-blur-md">
                 <button 
-                  onClick={(e) => { e.stopPropagation(); setZoom(prev => Math.min(prev + 0.5, 3)); }} 
+                  onClick={() => setZoom(prev => Math.min(prev + 0.5, 3))} 
                   className="p-3 bg-gray-700 text-white rounded-full hover:bg-gray-600 transition-colors"
                   title="Zoom In"
                 >
                   <ZoomIn size={24} />
                 </button>
                 <button 
-                  onClick={(e) => { e.stopPropagation(); setZoom(prev => Math.max(prev - 0.5, 0.5)); }} 
+                  onClick={() => setZoom(prev => Math.max(prev - 0.5, 0.5))} 
                   className="p-3 bg-gray-700 text-white rounded-full hover:bg-gray-600 transition-colors"
                   title="Zoom Out"
                 >
