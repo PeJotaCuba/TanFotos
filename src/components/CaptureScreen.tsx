@@ -4,9 +4,11 @@ import { savePhoto, getDirectoryHandle } from '../lib/db';
 
 interface CaptureScreenProps {
   onNavigate?: (screen: string) => void;
+  isLandscape: boolean;
+  setIsLandscape: (val: boolean) => void;
 }
 
-export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate }) => {
+export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate, isLandscape, setIsLandscape }) => {
   const [firstPhoto, setFirstPhoto] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -21,8 +23,6 @@ export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate }) => {
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   const [photoName, setPhotoName] = useState('Paciente ');
   const [photoDate, setPhotoDate] = useState('');
-
-  const [isLandscape, setIsLandscape] = useState(false);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -102,7 +102,7 @@ export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate }) => {
       canvas.width = video.videoHeight;
       canvas.height = video.videoWidth;
       context.translate(canvas.width / 2, canvas.height / 2);
-      context.rotate((90 * Math.PI) / 180);
+      context.rotate((-90 * Math.PI) / 180);
       context.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2, video.videoWidth, video.videoHeight);
       // Reset transform for future operations
       context.setTransform(1, 0, 0, 1, 0, 0);
@@ -111,7 +111,7 @@ export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate }) => {
       canvas.width = video.videoHeight;
       canvas.height = video.videoWidth;
       context.translate(canvas.width / 2, canvas.height / 2);
-      context.rotate((-90 * Math.PI) / 180);
+      context.rotate((90 * Math.PI) / 180);
       context.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2, video.videoWidth, video.videoHeight);
       context.setTransform(1, 0, 0, 1, 0, 0);
     } else {
@@ -277,7 +277,7 @@ export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate }) => {
         ref={videoRef} 
         autoPlay 
         playsInline 
-        className="absolute inset-0 w-full h-full object-cover"
+        className={`absolute inset-0 w-full h-full object-cover ${isLandscape ? 'counter-rotate' : ''}`}
       />
       <canvas ref={canvasRef} className="hidden" />
       
@@ -296,8 +296,8 @@ export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate }) => {
         onClick={() => setIsLandscape(!isLandscape)}
         className="absolute top-20 right-4 z-10 bg-black/50 text-white px-3 py-2 rounded-full text-sm font-bold shadow-lg flex items-center gap-2 backdrop-blur-md border border-white/20 transition-all"
       >
-        <Smartphone className={`transition-transform duration-300 ${isLandscape ? 'rotate-90' : ''}`} size={18} />
-        {isLandscape ? 'Horizontal' : 'Vertical'}
+        <Smartphone size={18} />
+        {isLandscape ? 'Modo Vertical' : 'Modo Horizontal'}
       </button>
 
       {firstPhoto && (
@@ -308,7 +308,7 @@ export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate }) => {
 
       {/* Scanning Frame */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className={`relative border-2 border-white/50 rounded-xl transition-all duration-300 ${isLandscape ? 'w-5/6 h-2/5 md:w-3/4 md:h-1/2' : 'w-4/5 h-2/3 md:w-3/5 md:h-3/4'}`}>
+        <div className="relative w-4/5 h-2/3 md:w-3/5 md:h-3/4 border-2 border-white/50 rounded-xl transition-all duration-300">
           {/* Corner brackets */}
           <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500 rounded-tl-xl"></div>
           <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500 rounded-tr-xl"></div>
@@ -316,7 +316,7 @@ export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate }) => {
           <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500 rounded-br-xl"></div>
           
           <div className="absolute inset-4 rounded-xl backdrop-blur-[1px] bg-white/5 border border-white/10 flex items-center justify-center">
-            <p className={`text-white font-medium tracking-wide text-center px-4 drop-shadow-md transition-transform duration-300 ${isLandscape ? 'rotate-90' : ''}`}>
+            <p className="text-white font-medium tracking-wide text-center px-4 drop-shadow-md transition-transform duration-300">
               {dualMode && !firstPhoto ? 'ALINEE EL FRENTE DEL DOCUMENTO' : 
                dualMode && firstPhoto ? 'ALINEE EL REVERSO DEL DOCUMENTO' : 
                'ALINEE EL DOCUMENTO DENTRO DEL MARCO'}
@@ -335,14 +335,14 @@ export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate }) => {
             className="w-20 h-20 rounded-full bg-white p-1.5 shadow-2xl active:scale-95 transition-transform"
           >
             <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center">
-              <Camera className={`text-white transition-transform duration-300 ${isLandscape ? 'rotate-90' : ''}`} size={32} />
+              <Camera className="text-white transition-transform duration-300" size={32} />
             </div>
           </button>
           <button 
             onClick={toggleCamera}
             className="w-12 h-12 rounded-full backdrop-blur-md bg-white/10 text-white flex items-center justify-center border border-white/20"
           >
-            <RotateCcw className={`transition-transform duration-300 ${isLandscape ? 'rotate-90' : ''}`} size={24} />
+            <RotateCcw className="transition-transform duration-300" size={24} />
           </button>
         </div>
       </div>

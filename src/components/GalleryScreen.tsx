@@ -193,7 +193,7 @@ export const GalleryScreen = () => {
   };
 
   return (
-    <main className="flex-grow pt-24 pb-32 px-4 md:px-8 max-w-5xl mx-auto w-full">
+    <main className="flex-grow pt-24 pb-32 px-4 md:px-8 max-w-5xl mx-auto w-full overflow-y-auto">
       <h2 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Galería</h2>
       
       {photos.length === 0 ? (

@@ -1,3 +1,23 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+.forced-landscape {
+  transform: translate(-50%, -50%) rotate(-90deg);
+  width: 100vh !important;
+  height: 100vw !important;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  overflow: hidden;
+}
+
+.counter-rotate {
+  width: 100vw !important;
+  height: 100vh !important;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(90deg);
+  object-fit: cover;
+}

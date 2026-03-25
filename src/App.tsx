@@ -15,6 +15,7 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState('capture');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(false);
 
   useEffect(() => {
     // Load dark mode preference
@@ -39,13 +40,13 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200">
+    <div className={`min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200 ${isLandscape ? 'forced-landscape' : ''}`}>
       <Header 
         isDarkMode={isDarkMode} 
         toggleDarkMode={toggleDarkMode} 
         onShowHelp={() => setShowHelp(true)} 
       />
-      {currentScreen === 'capture' && <CaptureScreen onNavigate={setCurrentScreen} />}
+      {currentScreen === 'capture' && <CaptureScreen onNavigate={setCurrentScreen} isLandscape={isLandscape} setIsLandscape={setIsLandscape} />}
       {currentScreen === 'gallery' && <GalleryScreen />}
       {currentScreen === 'settings' && <SettingsScreen />}
       <BottomNav currentScreen={currentScreen} onNavigate={setCurrentScreen} />
