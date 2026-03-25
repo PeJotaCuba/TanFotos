@@ -75,7 +75,7 @@ export const CaptureScreen = () => {
     
     // Draw current frame
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 1.0); // Maximum quality
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.95); // High quality, better performance than 1.0
 
     if (dualMode) {
       if (!firstPhoto) {
@@ -105,7 +105,7 @@ export const CaptureScreen = () => {
         context.drawImage(img1, 0, 0);
         context.drawImage(img2, 0, img1.height);
         
-        const combinedDataUrl = canvas.toDataURL('image/jpeg', 1.0); // Maximum quality
+        const combinedDataUrl = canvas.toDataURL('image/jpeg', 0.95); // High quality, better performance than 1.0
         openSaveModal(combinedDataUrl, 'dual');
         setFirstPhoto(null);
       }
@@ -279,7 +279,7 @@ export const CaptureScreen = () => {
             
             <div className="p-4 overflow-y-auto flex-grow">
               <div className="w-full flex items-center justify-center mb-4 bg-transparent">
-                <img src={previewPhoto} alt="Preview" className="max-w-full h-auto max-h-[50vh] object-contain rounded-lg shadow-md border border-gray-200 dark:border-gray-700" />
+                <img src={previewPhoto} alt="Preview" className="max-w-full h-auto max-h-[50vh] object-contain rounded-lg shadow-md border border-gray-200 dark:border-gray-700" decoding="async" />
               </div>
               
               <div className="space-y-4">

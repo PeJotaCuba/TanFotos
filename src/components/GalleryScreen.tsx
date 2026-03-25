@@ -99,6 +99,8 @@ export const GalleryScreen = () => {
                   src={photo.dataUrl} 
                   alt={photo.name} 
                   className="w-full h-full object-cover"
+                  loading="lazy"
+                  decoding="async"
                 />
                 <div className="absolute top-2 right-2 flex flex-col gap-2">
                   <button 
@@ -151,6 +153,7 @@ export const GalleryScreen = () => {
             alt={expandedPhoto.name} 
             className="max-w-full max-h-full object-contain cursor-pointer"
             onClick={closeFullScreen}
+            decoding="async"
           />
           
           <button 
