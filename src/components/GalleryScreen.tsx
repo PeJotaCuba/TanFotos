@@ -315,8 +315,11 @@ export const GalleryScreen = () => {
             </div>
           ) : (
             <>
-              <div className="w-full h-full overflow-auto flex items-center justify-center">
-                <div style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.2s' }}>
+              <div className="w-full h-full overflow-auto">
+                <div 
+                  className="flex items-center justify-center min-h-full min-w-full"
+                  style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.2s' }}
+                >
                   <img 
                     src={expandedPhoto.dataUrl} 
                     alt={expandedPhoto.name} 
@@ -343,7 +346,7 @@ export const GalleryScreen = () => {
                   <ZoomIn size={24} />
                 </button>
                 <button 
-                  onClick={(e) => { e.stopPropagation(); setZoom(prev => Math.max(prev - 0.5, 1)); }} 
+                  onClick={(e) => { e.stopPropagation(); setZoom(prev => Math.max(prev - 0.5, 0.5)); }} 
                   className="p-3 bg-gray-700 text-white rounded-full hover:bg-gray-600 transition-colors"
                   title="Zoom Out"
                 >
