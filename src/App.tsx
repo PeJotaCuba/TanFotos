@@ -5,7 +5,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
-import { BottomNav } from './components/BottomNav';
 import { CaptureScreen } from './components/CaptureScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { GalleryScreen } from './components/GalleryScreen';
@@ -45,11 +44,12 @@ export default function App() {
         isDarkMode={isDarkMode} 
         toggleDarkMode={toggleDarkMode} 
         onShowHelp={() => setShowHelp(true)} 
+        currentScreen={currentScreen}
+        onNavigate={setCurrentScreen}
       />
-      {currentScreen === 'capture' && <CaptureScreen onNavigate={setCurrentScreen} isLandscape={isLandscape} setIsLandscape={setIsLandscape} />}
+      {currentScreen === 'capture' && <CaptureScreen onNavigate={setCurrentScreen} />}
       {currentScreen === 'gallery' && <GalleryScreen />}
       {currentScreen === 'settings' && <SettingsScreen />}
-      <BottomNav currentScreen={currentScreen} onNavigate={setCurrentScreen} />
       
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
     </div>

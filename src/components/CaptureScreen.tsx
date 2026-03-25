@@ -1,18 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, RotateCcw, Save, X, Share2, Split, Smartphone } from 'lucide-react';
+import { Camera, RotateCcw, Save, X, Share2, Split } from 'lucide-react';
 import { savePhoto, getDirectoryHandle } from '../lib/db';
+import { motion } from 'motion/react';
 
 interface CaptureScreenProps {
   onNavigate?: (screen: string) => void;
-  isLandscape: boolean;
-  setIsLandscape: (val: boolean) => void;
 }
 
-export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate, isLandscape, setIsLandscape }) => {
+export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate }) => {
   const [firstPhoto, setFirstPhoto] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
+  const [scale, setScale] = useState(1);
+  const [initialDist, setInitialDist] = useState(0);
+  const [initialScale, setInitialScale] = useState(1);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -77,6 +79,7 @@ export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate, isLand
   const openSaveModal = (dataUrl: string, type: string) => {
     setPreviewPhoto(dataUrl);
     setPhotoName('Paciente ');
+    setScale(1);
     
     // Set current date in YYYY-MM-DD format
     const today = new Date();
@@ -94,32 +97,10 @@ export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate, isLand
     const context = canvas.getContext('2d');
     if (!context) return;
 
-    // Set canvas dimensions to match video exactly (full frame)
-    const isStreamPortrait = video.videoHeight > video.videoWidth;
-    
-    if (isLandscape && isStreamPortrait) {
-      // Force landscape output from a portrait stream
-      canvas.width = video.videoHeight;
-      canvas.height = video.videoWidth;
-      context.translate(canvas.width / 2, canvas.height / 2);
-      context.rotate((-90 * Math.PI) / 180);
-      context.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2, video.videoWidth, video.videoHeight);
-      // Reset transform for future operations
-      context.setTransform(1, 0, 0, 1, 0, 0);
-    } else if (!isLandscape && !isStreamPortrait) {
-      // Force portrait output from a landscape stream
-      canvas.width = video.videoHeight;
-      canvas.height = video.videoWidth;
-      context.translate(canvas.width / 2, canvas.height / 2);
-      context.rotate((90 * Math.PI) / 180);
-      context.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2, video.videoWidth, video.videoHeight);
-      context.setTransform(1, 0, 0, 1, 0, 0);
-    } else {
-      // Stream matches desired orientation
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    }
+    // Stream matches desired orientation
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
     
     const dataUrl = canvas.toDataURL('image/jpeg', 0.85); // Good quality, much faster
 
@@ -284,7 +265,7 @@ export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate, isLand
         
         {/* Scanning Frame */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className={`relative border-2 border-white/50 rounded-xl transition-all duration-300 ${isLandscape ? 'w-5/6 h-2/5 md:w-3/4 md:h-1/2' : 'w-4/5 h-2/3 md:w-3/5 md:h-3/4'}`}>
+          <div className="relative border-2 border-white/50 rounded-xl transition-all duration-300 w-4/5 h-2/3 md:w-3/5 md:h-3/4">
             {/* Corner brackets */}
             <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500 rounded-tl-xl"></div>
             <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500 rounded-tr-xl"></div>
@@ -304,15 +285,6 @@ export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate, isLand
 
       {/* UI Overlays */}
       <div className="absolute top-20 right-4 z-10 flex flex-col gap-4">
-        {/* Orientation Toggle */}
-        <button
-          onClick={() => setIsLandscape(!isLandscape)}
-          className="bg-black/50 text-white px-3 py-2 rounded-full text-sm font-bold shadow-lg flex items-center gap-2 backdrop-blur-md border border-white/20 transition-all"
-        >
-          <Smartphone size={18} />
-          {isLandscape ? 'Modo Vertical' : 'Modo Horizontal'}
-        </button>
-
         {firstPhoto && (
           <div className="bg-blue-600/80 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse">
             Esperando segunda foto...
@@ -360,8 +332,30 @@ export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate, isLand
             </div>
             
             <div className="p-4 overflow-y-auto flex-grow">
-              <div className="w-full flex items-center justify-center mb-4 bg-transparent">
-                <img src={previewPhoto} alt="Preview" className="max-w-full h-auto max-h-[35vh] object-contain rounded-lg shadow-md border border-gray-200 dark:border-gray-700" decoding="async" />
+              <div className="w-full flex items-center justify-center mb-4 bg-transparent overflow-hidden">
+                <motion.img 
+                  src={previewPhoto} 
+                  alt="Preview" 
+                  className="max-w-full h-auto max-h-[35vh] object-contain rounded-lg shadow-md border border-gray-200 dark:border-gray-700" 
+                  decoding="async"
+                  initial={{ scale: 1 }}
+                  animate={{ scale: scale }}
+                  style={{ touchAction: 'none' }}
+                  onTouchStart={(e) => {
+                    if (e.touches.length === 2) {
+                      const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                      setInitialDist(dist);
+                      setInitialScale(scale);
+                    }
+                  }}
+                  onTouchMove={(e) => {
+                    if (e.touches.length === 2 && initialDist > 0) {
+                      const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                      const newScale = initialScale * (dist / initialDist);
+                      setScale(Math.min(Math.max(newScale, 1), 3));
+                    }
+                  }}
+                />
               </div>
               
               <div className="space-y-4">
