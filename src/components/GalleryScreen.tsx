@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getPhotos, deletePhoto, PhotoRecord } from '../lib/db';
-import { Trash2, Download, Folder } from 'lucide-react';
+import { Trash2, Download, Folder, Share2 } from 'lucide-react';
 
 export const GalleryScreen = () => {
   const [photos, setPhotos] = useState<PhotoRecord[]>([]);
@@ -34,6 +34,28 @@ export const GalleryScreen = () => {
     document.body.removeChild(link);
   };
 
+  const handleShare = async (photo: PhotoRecord) => {
+    try {
+      const res = await fetch(photo.dataUrl);
+      const blob = await res.blob();
+      const file = new File([blob], photo.name, { type: 'image/jpeg' });
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: photo.name,
+          text: `Documento: ${photo.name}`
+        });
+      } else {
+        alert('Tu navegador no soporta compartir imágenes directamente a WhatsApp.');
+      }
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error('Error sharing:', error);
+      }
+    }
+  };
+
   return (
     <main className="flex-grow pt-24 pb-32 px-4 md:px-8 max-w-5xl mx-auto w-full">
       <h2 className="text-3xl font-bold mb-8">Galería</h2>
@@ -53,6 +75,13 @@ export const GalleryScreen = () => {
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute top-2 right-2 flex flex-col gap-2">
+                  <button 
+                    onClick={() => handleShare(photo)}
+                    className="p-2 bg-green-500/90 text-white rounded-full shadow-md hover:bg-green-600 active:scale-95 transition-transform"
+                    title="Compartir por WhatsApp"
+                  >
+                    <Share2 size={16} />
+                  </button>
                   <button 
                     onClick={() => handleDownload(photo)}
                     className="p-2 bg-blue-600/90 text-white rounded-full shadow-md hover:bg-blue-700 active:scale-95 transition-transform"
