@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
+import { BottomNav } from './components/BottomNav';
 import { CaptureScreen } from './components/CaptureScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { GalleryScreen } from './components/GalleryScreen';
@@ -14,7 +15,6 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState('capture');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const [isLandscape, setIsLandscape] = useState(false);
 
   useEffect(() => {
     // Load dark mode preference
@@ -44,12 +44,12 @@ export default function App() {
         isDarkMode={isDarkMode} 
         toggleDarkMode={toggleDarkMode} 
         onShowHelp={() => setShowHelp(true)} 
-        currentScreen={currentScreen}
-        onNavigate={setCurrentScreen}
       />
       {currentScreen === 'capture' && <CaptureScreen onNavigate={setCurrentScreen} />}
       {currentScreen === 'gallery' && <GalleryScreen />}
       {currentScreen === 'settings' && <SettingsScreen />}
+      
+      <BottomNav currentScreen={currentScreen} onNavigate={setCurrentScreen} />
       
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
     </div>

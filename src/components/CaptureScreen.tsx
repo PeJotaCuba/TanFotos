@@ -285,6 +285,11 @@ export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate }) => {
 
       {/* UI Overlays */}
       <div className="absolute top-20 right-4 z-10 flex flex-col gap-4">
+        {dualMode && !firstPhoto && (
+          <div className="bg-purple-600/80 text-white px-3 py-1 rounded-full text-xs font-bold">
+            Modo Dual Activado
+          </div>
+        )}
         {firstPhoto && (
           <div className="bg-blue-600/80 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse">
             Esperando segunda foto...
@@ -296,11 +301,16 @@ export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate }) => {
       <div className="absolute bottom-8 inset-x-0 px-8 flex items-center justify-center gap-12 md:static md:w-24 md:flex-col md:justify-center md:bg-black/20">
         <button 
           onClick={handleCapture}
-          className="w-20 h-20 rounded-full bg-white p-1.5 shadow-2xl active:scale-95 transition-transform"
+          className="w-20 h-20 rounded-full bg-white p-1.5 shadow-2xl active:scale-95 transition-transform relative"
         >
           <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center">
             <Camera className="text-white" size={32} />
           </div>
+          {dualMode && (
+            <div className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm border-2 border-white">
+              {firstPhoto ? '2' : '1'}
+            </div>
+          )}
         </button>
         <button 
           onClick={toggleCamera}
