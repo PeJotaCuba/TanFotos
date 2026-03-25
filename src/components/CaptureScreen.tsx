@@ -9,7 +9,15 @@ interface CaptureScreenProps {
 
 export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate }) => {
   const [firstPhoto, setFirstPhoto] = useState<string | null>(null);
+  const [focusPoint, setFocusPoint] = useState<{x: number, y: number} | null>(null);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+  const handleTapToFocus = (e: React.MouseEvent<HTMLVideoElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setFocusPoint({x, y});
+    setTimeout(() => setFocusPoint(null), 1000);
+  };
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
   const [scale, setScale] = useState(1);
@@ -261,8 +269,16 @@ export const CaptureScreen: React.FC<CaptureScreenProps> = ({ onNavigate }) => {
           ref={videoRef} 
           autoPlay 
           playsInline 
+          muted 
           className="absolute inset-0 w-full h-full object-cover"
+          onClick={handleTapToFocus}
         />
+        {focusPoint && (
+          <div 
+            className="absolute w-16 h-16 border-2 border-yellow-400 rounded-lg pointer-events-none animate-pulse"
+            style={{ left: focusPoint.x - 32, top: focusPoint.y - 32 }}
+          />
+        )}
         <canvas ref={canvasRef} className="hidden" />
         
         {/* Scanning Frame */}

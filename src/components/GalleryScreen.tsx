@@ -315,14 +315,17 @@ export const GalleryScreen = () => {
             </div>
           ) : (
             <>
-              <img 
-                src={expandedPhoto.dataUrl} 
-                alt={expandedPhoto.name} 
-                className="max-w-full max-h-full object-contain cursor-pointer transition-transform duration-200"
-                style={{ transform: `scale(${zoom})` }}
-                onClick={closeFullScreen}
-                decoding="async"
-              />
+              <div className="w-full h-full overflow-auto flex items-center justify-center">
+                <div style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.2s' }}>
+                  <img 
+                    src={expandedPhoto.dataUrl} 
+                    alt={expandedPhoto.name} 
+                    className="max-w-full max-h-full object-contain cursor-pointer"
+                    onClick={closeFullScreen}
+                    decoding="async"
+                  />
+                </div>
+              </div>
               
               <button 
                 onClick={closeFullScreen} 
