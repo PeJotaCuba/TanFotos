@@ -58,17 +58,17 @@ export const GalleryScreen = () => {
 
   return (
     <main className="flex-grow pt-24 pb-32 px-4 md:px-8 max-w-5xl mx-auto w-full">
-      <h2 className="text-3xl font-bold mb-8">Galería</h2>
+      <h2 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Galería</h2>
       
       {photos.length === 0 ? (
-        <div className="text-center text-gray-500 mt-20">
+        <div className="text-center text-gray-500 dark:text-gray-400 mt-20">
           <p>No hay fotos guardadas aún.</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {photos.map(photo => (
-            <div key={photo.id} className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 flex flex-col">
-              <div className="aspect-[3/4] bg-gray-100 relative">
+            <div key={photo.id} className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col">
+              <div className="aspect-[3/4] bg-gray-100 dark:bg-gray-900 relative">
                 <img 
                   src={photo.dataUrl} 
                   alt={photo.name} 
@@ -100,15 +100,15 @@ export const GalleryScreen = () => {
               </div>
               <div className="p-3 flex-grow flex flex-col justify-between">
                 <div>
-                  <p className="text-xs font-medium text-gray-800 truncate" title={photo.name}>{photo.name}</p>
+                  <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate" title={photo.name}>{photo.name}</p>
                   {photo.folder && (
-                    <p className="text-[10px] text-blue-600 mt-1 flex items-center gap-1 truncate" title={photo.folder}>
+                    <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 truncate" title={photo.folder}>
                       <Folder size={10} />
                       {photo.folder}
                     </p>
                   )}
                 </div>
-                <p className="text-[10px] text-gray-400 mt-2">
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2">
                   {new Date(photo.timestamp).toLocaleString()}
                 </p>
               </div>

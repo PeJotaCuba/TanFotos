@@ -1,17 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, RotateCcw, Split, Save, X, Share2 } from 'lucide-react';
+import { Camera, RotateCcw, Save, X, Share2 } from 'lucide-react';
 import { savePhoto, getDirectoryHandle } from '../lib/db';
 
 export const CaptureScreen = () => {
-  const [dualMode, setDualMode] = useState(false);
   const [firstPhoto, setFirstPhoto] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  
+  // Read dual mode from settings
+  const dualMode = localStorage.getItem('tanFotos_dualMode') === 'true';
 
   // Modal state
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
-  const [photoName, setPhotoName] = useState('');
+  const [photoName, setPhotoName] = useState('Paciente ');
+  const [photoDate, setPhotoDate] = useState('');
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -19,7 +22,11 @@ export const CaptureScreen = () => {
     const startCamera = async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode }
+          video: { 
+            facingMode,
+            width: { ideal: 4096 },
+            height: { ideal: 2160 }
+          }
         });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -44,8 +51,14 @@ export const CaptureScreen = () => {
 
   const openSaveModal = (dataUrl: string, type: string) => {
     setPreviewPhoto(dataUrl);
-    const timestamp = Date.now();
-    setPhotoName(`TanFotos_${type}_${timestamp}`);
+    setPhotoName('Paciente ');
+    
+    // Set current date in YYYY-MM-DD format
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    setPhotoDate(`${yyyy}-${mm}-${dd}`);
   };
 
   const handleCapture = async () => {
@@ -56,13 +69,13 @@ export const CaptureScreen = () => {
     const context = canvas.getContext('2d');
     if (!context) return;
 
-    // Set canvas dimensions to match video
+    // Set canvas dimensions to match video exactly (full frame)
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     
     // Draw current frame
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    const dataUrl = canvas.toDataURL('image/jpeg', 1.0); // Maximum quality
 
     if (dualMode) {
       if (!firstPhoto) {
@@ -92,7 +105,7 @@ export const CaptureScreen = () => {
         context.drawImage(img1, 0, 0);
         context.drawImage(img2, 0, img1.height);
         
-        const combinedDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        const combinedDataUrl = canvas.toDataURL('image/jpeg', 1.0); // Maximum quality
         openSaveModal(combinedDataUrl, 'dual');
         setFirstPhoto(null);
       }
@@ -105,7 +118,9 @@ export const CaptureScreen = () => {
   const confirmSave = async () => {
     if (!previewPhoto) return;
 
-    const finalName = photoName.endsWith('.jpg') ? photoName : `${photoName}.jpg`;
+    const baseName = photoName.trim();
+    const dateSuffix = photoDate ? `_${photoDate}` : '';
+    const finalName = `${baseName}${dateSuffix}.jpg`;
     const folderName = localStorage.getItem('tanFotos_folderPath') || 'Descargas';
     
     // Save to IndexedDB for Gallery
@@ -158,7 +173,9 @@ export const CaptureScreen = () => {
   const shareViaWhatsApp = async () => {
     if (!previewPhoto) return;
     
-    const finalName = photoName.endsWith('.jpg') ? photoName : `${photoName}.jpg`;
+    const baseName = photoName.trim();
+    const dateSuffix = photoDate ? `_${photoDate}` : '';
+    const finalName = `${baseName}${dateSuffix}.jpg`;
     
     try {
       const res = await fetch(previewPhoto);
@@ -194,20 +211,6 @@ export const CaptureScreen = () => {
       
       {/* Overlay gradient for better UI visibility */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60 pointer-events-none" />
-
-      {/* Dual Mode Toggle */}
-      <div className="absolute top-6 left-4 z-10">
-        <button 
-          onClick={() => {
-            setDualMode(!dualMode);
-            setFirstPhoto(null); // Reset if toggled
-          }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-md border border-white/20 transition-all ${dualMode ? 'bg-blue-600 text-white' : 'bg-white/10 text-white'}`}
-        >
-          <Split size={20} />
-          <span className="text-sm font-medium">{dualMode ? 'Dual: ON' : 'Dual: OFF'}</span>
-        </button>
-      </div>
 
       {firstPhoto && (
         <div className="absolute top-20 left-4 z-10 bg-blue-600/80 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse">
@@ -259,33 +262,42 @@ export const CaptureScreen = () => {
       {/* Save Modal */}
       {previewPhoto && (
         <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="font-bold text-lg">Guardar Foto</h3>
-              <button onClick={() => setPreviewPhoto(null)} className="p-1 hover:bg-gray-100 rounded-full">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="font-bold text-lg text-gray-900 dark:text-white">Guardar Foto</h3>
+              <button onClick={() => setPreviewPhoto(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-500 dark:text-gray-400">
                 <X size={20} />
               </button>
             </div>
             
             <div className="p-4 overflow-y-auto flex-grow">
-              <div className="aspect-[3/4] bg-gray-100 rounded-lg overflow-hidden mb-4 flex items-center justify-center">
-                <img src={previewPhoto} alt="Preview" className="max-w-full max-h-full object-contain" />
+              <div className="w-full flex items-center justify-center mb-4 bg-transparent">
+                <img src={previewPhoto} alt="Preview" className="max-w-full h-auto max-h-[50vh] object-contain rounded-lg shadow-md border border-gray-200 dark:border-gray-700" />
               </div>
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del archivo</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del paciente</label>
                   <input 
                     type="text" 
                     value={photoName}
                     onChange={(e) => setPhotoName(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha</label>
+                  <input 
+                    type="date" 
+                    value={photoDate}
+                    onChange={(e) => setPhotoDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
               </div>
             </div>
             
-            <div className="p-4 border-t bg-gray-50 flex flex-col gap-3">
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex flex-col gap-3">
               <div className="flex gap-3">
                 <button 
                   onClick={confirmSave}
@@ -304,7 +316,7 @@ export const CaptureScreen = () => {
               </div>
               <button 
                 onClick={() => setPreviewPhoto(null)}
-                className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-100"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancelar
               </button>
