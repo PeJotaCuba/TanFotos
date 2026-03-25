@@ -1,13 +1,36 @@
 import React, { useEffect, useState } from 'react';
 import { getPhotos, deletePhoto, PhotoRecord } from '../lib/db';
-import { Trash2, Download, Folder, Share2 } from 'lucide-react';
+import { Trash2, Download, Folder, Share2, X } from 'lucide-react';
 
 export const GalleryScreen = () => {
   const [photos, setPhotos] = useState<PhotoRecord[]>([]);
+  const [expandedPhoto, setExpandedPhoto] = useState<PhotoRecord | null>(null);
 
   useEffect(() => {
     loadPhotos();
   }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (expandedPhoto) {
+        setExpandedPhoto(null);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [expandedPhoto]);
+
+  const openFullScreen = (photo: PhotoRecord) => {
+    setExpandedPhoto(photo);
+    window.history.pushState({ fullScreen: true }, '');
+  };
+
+  const closeFullScreen = () => {
+    setExpandedPhoto(null);
+    if (window.history.state?.fullScreen) {
+      window.history.back();
+    }
+  };
 
   const loadPhotos = async () => {
     try {
@@ -68,7 +91,10 @@ export const GalleryScreen = () => {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {photos.map(photo => (
             <div key={photo.id} className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col">
-              <div className="aspect-[3/4] bg-gray-100 dark:bg-gray-900 relative">
+              <div 
+                className="aspect-[3/4] bg-gray-100 dark:bg-gray-900 relative cursor-pointer"
+                onClick={() => openFullScreen(photo)}
+              >
                 <img 
                   src={photo.dataUrl} 
                   alt={photo.name} 
@@ -76,21 +102,21 @@ export const GalleryScreen = () => {
                 />
                 <div className="absolute top-2 right-2 flex flex-col gap-2">
                   <button 
-                    onClick={() => handleShare(photo)}
+                    onClick={(e) => { e.stopPropagation(); handleShare(photo); }}
                     className="p-2 bg-green-500/90 text-white rounded-full shadow-md hover:bg-green-600 active:scale-95 transition-transform"
                     title="Compartir por WhatsApp"
                   >
                     <Share2 size={16} />
                   </button>
                   <button 
-                    onClick={() => handleDownload(photo)}
+                    onClick={(e) => { e.stopPropagation(); handleDownload(photo); }}
                     className="p-2 bg-blue-600/90 text-white rounded-full shadow-md hover:bg-blue-700 active:scale-95 transition-transform"
                     title="Descargar"
                   >
                     <Download size={16} />
                   </button>
                   <button 
-                    onClick={() => photo.id && handleDelete(photo.id)}
+                    onClick={(e) => { e.stopPropagation(); photo.id && handleDelete(photo.id); }}
                     className="p-2 bg-red-600/90 text-white rounded-full shadow-md hover:bg-red-700 active:scale-95 transition-transform"
                     title="Eliminar"
                   >
@@ -114,6 +140,55 @@ export const GalleryScreen = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Full Screen Photo Modal */}
+      {expandedPhoto && (
+        <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center">
+          <img 
+            src={expandedPhoto.dataUrl} 
+            alt={expandedPhoto.name} 
+            className="max-w-full max-h-full object-contain cursor-pointer"
+            onClick={closeFullScreen}
+          />
+          
+          <button 
+            onClick={closeFullScreen} 
+            className="absolute top-6 right-6 p-2 bg-black/50 text-white rounded-full backdrop-blur-md hover:bg-black/70 transition-colors"
+          >
+            <X size={24} />
+          </button>
+
+          <div className="absolute bottom-8 flex gap-6 bg-black/50 p-4 rounded-full backdrop-blur-md">
+            <button 
+              onClick={(e) => { e.stopPropagation(); handleShare(expandedPhoto); }} 
+              className="p-3 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors"
+              title="Compartir por WhatsApp"
+            >
+              <Share2 size={24} />
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); handleDownload(expandedPhoto); }} 
+              className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
+              title="Descargar"
+            >
+              <Download size={24} />
+            </button>
+            <button 
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                if (expandedPhoto.id) {
+                  handleDelete(expandedPhoto.id);
+                  closeFullScreen();
+                }
+              }} 
+              className="p-3 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
+              title="Eliminar"
+            >
+              <Trash2 size={24} />
+            </button>
+          </div>
         </div>
       )}
     </main>

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, RotateCcw, Save, X, Share2 } from 'lucide-react';
+import { Camera, RotateCcw, Save, X, Share2, Split } from 'lucide-react';
 import { savePhoto, getDirectoryHandle } from '../lib/db';
 
 export const CaptureScreen = () => {
@@ -212,8 +212,15 @@ export const CaptureScreen = () => {
       {/* Overlay gradient for better UI visibility */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60 pointer-events-none" />
 
+      {dualMode && (
+        <div className="absolute top-20 left-4 z-10 bg-blue-600/90 text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-lg flex items-center gap-2 backdrop-blur-md">
+          <Split size={16} />
+          Modo Dual Activado
+        </div>
+      )}
+
       {firstPhoto && (
-        <div className="absolute top-20 left-4 z-10 bg-blue-600/80 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse">
+        <div className="absolute top-32 left-4 z-10 bg-blue-600/80 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse">
           Esperando segunda foto...
         </div>
       )}
